@@ -1,1 +1,251 @@
-# Voting
+<!DOCTYPE html>
+<html>
+<head>
+  <title>School Voting System</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f6ff;
+      color: #003366;
+      padding: 20px;
+    }
+    h1, h2, h3 {
+      color: #002b80;
+    }
+    .hidden { display: none; }
+    .section { margin-bottom: 30px; padding: 15px; background: #e6eeff; border-radius: 10px; }
+    .admin-box, .vote-box {
+      border: 2px solid #002b80;
+      padding: 20px;
+      border-radius: 12px;
+      background-color: white;
+    }
+    input, select, button {
+      margin: 5px 0;
+      padding: 8px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 100%;
+    }
+    button {
+      background-color: #0044cc;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #002b80;
+    }
+    ul { list-style: none; padding: 0; }
+    li { padding: 5px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>🏫 School Election Voting Booth</h1>
+
+  <div class="section vote-box" id="loginSection">
+    <h2>Student Login</h2>
+    <input type="text" id="studentName" placeholder="Enter your name">
+    <select id="studentClass">
+      <option value="">Select your class</option>
+    </select>
+    <button onclick="startVoting()">Proceed to Vote</button>
+    <p id="alreadyVotedMsg" class="hidden" style="color: red;"></p>
+  </div>
+
+  <div class="section vote-box hidden" id="voteSection">
+    <h2>Cast Your Votes</h2>
+    <form id="voteForm">
+      <div id="postsContainer"></div>
+      <button type="submit">Submit Votes</button>
+    </form>
+    <p id="voteMsg" class="hidden" style="color: green; font-weight: bold;"></p>
+  </div>
+
+  <hr>
+
+  <div class="section admin-box" id="adminLogin">
+    <h2>Admin Panel</h2>
+    <input type="password" id="adminPass" placeholder="Enter admin password">
+    <button onclick="checkAdmin()">View Results</button>
+    <p id="adminError" style="color:red;"></p>
+  </div>
+
+  <div class="section admin-box hidden" id="resultsSection">
+    <h2>📊 Results</h2>
+    <ul id="resultsList"></ul>
+    <button onclick="downloadExcel()">⬇️ Export to Excel</button>
+    <button onclick="resetVotes()" style="background-color: #cc0000;">❌ Reset All Votes</button>
+  </div>
+
+  <script>
+    const posts = [
+      "Head Boy", "Head Girl", "Sports Captain", "Cultural Secretary",
+      "Discipline Captain", "Science Club Captain", "Math Club Captain",
+      "English Club Captain", "Social Service Captain"
+    ];
+
+    const candidates = {
+      "Head Boy": ["Rohan", "Aryan"],
+      "Head Girl": ["Meera", "Divya"],
+      "Sports Captain": ["Rahul", "Sneha"],
+      "Cultural Secretary": ["Kiran", "Lavanya"],
+      "Discipline Captain": ["Vivek", "Tanya"],
+      "Science Club Captain": ["Dev", "Anita"],
+      "Math Club Captain": ["Neel", "Priya"],
+      "English Club Captain": ["Akhil", "Riya"],
+      "Social Service Captain": ["Aman", "Diya"]
+    };
+
+    const classOptions = [
+      "6A", "6B", "6C", "7A", "7B", "7C",
+      "8A", "8B", "8C", "9A", "9B", "9C",
+      "10A", "10B", "10C", "11A", "11B", "11C",
+      "12A", "12B", "12C"
+    ];
+
+    const studentKey = () =>
+      "voted_" + document.getElementById("studentName").value + "_" +
+      document.getElementById("studentClass").value;
+
+    function populateClassDropdown() {
+      const select = document.getElementById("studentClass");
+      classOptions.forEach(cls => {
+        const option = document.createElement("option");
+        option.value = cls;
+        option.textContent = cls;
+        select.appendChild(option);
+      });
+    }
+
+    function startVoting() {
+      const name = document.getElementById("studentName").value.trim();
+      const cls = document.getElementById("studentClass").value.trim();
+
+      if (!name || !cls) return alert("Please enter your name and select your class.");
+
+      if (localStorage.getItem(studentKey())) {
+        document.getElementById("alreadyVotedMsg").textContent = "⚠️ You have already voted!";
+        document.getElementById("alreadyVotedMsg").classList.remove("hidden");
+        return;
+      }
+
+      document.getElementById("loginSection").classList.add("hidden");
+      document.getElementById("voteSection").classList.remove("hidden");
+
+      const container = document.getElementById("postsContainer");
+      posts.forEach(post => {
+        const div = document.createElement("div");
+        div.innerHTML = `<strong>${post}:</strong><br>` + candidates[post]
+          .map(c => `<label><input type="radio" name="${post}" value="${c}"> ${c}</label>`)
+          .join("<br>");
+        container.appendChild(div);
+        container.appendChild(document.createElement("br"));
+      });
+    }
+
+    document.getElementById("voteForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      let allVotes = JSON.parse(localStorage.getItem("votes") || "{}");
+      posts.forEach(post => {
+        const selected = document.querySelector(`input[name="${post}"]:checked`);
+        if (selected) {
+          allVotes[post] = allVotes[post] || {};
+          allVotes[post][selected.value] = (allVotes[post][selected.value] || 0) + 1;
+        }
+      });
+      localStorage.setItem("votes", JSON.stringify(allVotes));
+      localStorage.setItem(studentKey(), "voted");
+      document.getElementById("voteForm").classList.add("hidden");
+      document.getElementById("voteMsg").textContent = "✅ Thank you! Your vote has been recorded.";
+      document.getElementById("voteMsg").classList.remove("hidden");
+    });
+
+    function checkAdmin() {
+      const password = document.getElementById("adminPass").value;
+      if (password === "admin123") {
+        document.getElementById("adminError").textContent = "";
+        showResults();
+      } else {
+        document.getElementById("adminError").textContent = "Incorrect password!";
+      }
+    }
+
+    function showResults() {
+      const votes = JSON.parse(localStorage.getItem("votes") || "{}");
+      const resultsList = document.getElementById("resultsList");
+      resultsList.innerHTML = "";
+
+      const winners = [];
+
+      for (let post in votes) {
+        const postLi = document.createElement("li");
+        postLi.innerHTML = `<strong>${post}</strong><ul>`;
+        
+        let maxVotes = 0;
+        let topCandidates = [];
+
+        for (let candidate in votes[post]) {
+          const count = votes[post][candidate];
+          postLi.innerHTML += `<li>${candidate}: ${count} votes</li>`;
+
+          if (count > maxVotes) {
+            maxVotes = count;
+            topCandidates = [candidate];
+          } else if (count === maxVotes) {
+            topCandidates.push(candidate);
+          }
+        }
+
+        postLi.innerHTML += "</ul>";
+        resultsList.appendChild(postLi);
+
+        winners.push({ post, topCandidates, maxVotes });
+      }
+
+      // Winners Section
+      const winnersHeading = document.createElement("h3");
+      winnersHeading.textContent = "🏆 Winners";
+      resultsList.appendChild(winnersHeading);
+
+      const winnersList = document.createElement("ul");
+      winners.forEach(({ post, topCandidates, maxVotes }) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<strong>${post}</strong>: ${topCandidates.join(", ")} (${maxVotes} votes)`;
+        winnersList.appendChild(li);
+      });
+
+      resultsList.appendChild(winnersList);
+      document.getElementById("resultsSection").classList.remove("hidden");
+    }
+
+    function downloadExcel() {
+      const votes = JSON.parse(localStorage.getItem("votes") || "{}");
+      let csv = "Post,Candidate,Votes\n";
+      for (let post in votes) {
+        for (let c in votes[post]) {
+          csv += `${post},${c},${votes[post][c]}\n`;
+        }
+      }
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "voting_results.csv";
+      link.click();
+    }
+
+    function resetVotes() {
+      if (confirm("Are you sure you want to reset all votes?")) {
+        localStorage.clear();
+        alert("Votes have been reset.");
+        location.reload();
+      }
+    }
+
+    // Initialize class dropdown on page load
+    populateClassDropdown();
+  </script>
+
+</body>
+</html>
